@@ -160,84 +160,108 @@ class Color;
 class PowerCoeff;
 class PointLight;
 class DirectionalLight;
+
+class Color {
+  // static bool aExists = false;
+  // static bool dExists = false;
+  // static bool sExists = false;
+  public:
+    static bool aExists;
+    static bool dExists;
+    static bool sExists;
+    float r, g, b;
+};
+
+bool Color::aExists = false;
+bool Color::dExists = false;
+bool Color::sExists = false;
+
+class PowerCoeff {
+  // static bool isExists = false;
+  public:
+    static bool isExists;
+    float v;
+};
+
+bool PowerCoeff::isExists = false;
+
+class PointLight {
+  // static int count = 0;
+  public:
+    static int count;
+    float x, y, z, r, g, b;	// rgb should be mapped to display values of 255
+};
+
+int PointLight::count = 0;
+
+class DirectionalLight {
+  // static int count = 0;
+  public:
+    static int count;
+    float x, y, z, r, g, b;
+};
+
+int DirectionalLight::count = 0;
+
+
 PowerCoeff power;
 PointLight plArray[5];
 DirectionalLight dlArray[5];
 Color ac, dc, sc;
 
-class Color {
-  static bool aExists = false;
-  static bool dExists = false;
-  static bool sExists = false;
-  float r, g, b;
-};
 
-class PowerCoeff {
-  static bool isExists = false;
-  float v;
-};
-
-class PointLight {
-  static int count = 0;
-  float x, y, z, r, g, b;	// rgb should be mapped to display values of 255
-};
-
-class DirectionalLight {
-  static int count = 0;
-  float x, y, z, r, g, b;
-};
 
 //****************************************************
 // the usual stuff, nothing exciting here
 //****************************************************
-int main(int argc, char *argv[)] {
+int main(int argc, char *argv[]) {
   // parse the command-line args and create appropriate objects
   for (int i = 1; i < argc;) {
     cout << "arg: " << argv[i];
     if (argv[i] == "-ka") {
-      Color.kExists = true;
+      Color::aExists = true;
       ac.r = atof(argv[i+1]);
       ac.g = atof(argv[i+2]);
       ac.b = atof(argv[i+3]);
       i += 4;
     }
     if (argv[i] == "-kd") {
-      Color.dExists = true;
+      Color::dExists = true;
       dc.r = atof(argv[i+1]);
       dc.g = atof(argv[i+2]);
       dc.b = atof(argv[i+3]);
       i += 4;
     }
     if (argv[i] == "-ks") {
-      Color.sExists = true;
+      Color::sExists = true;
       sc.r = atof(argv[i+1]);
       sc.g = atof(argv[i+2]);
       sc.b = atof(argv[i+3]);
       i += 4;
     }
     if (argv[i] == "-sp" ) {
-      PowerCoeff.isExists = true;
+      PowerCoeff::isExists = true;
       power.v = atof(argv[i+1]);
       i += 2;
     }
     if (argv[i] == "-pl") {
-      PointLight[PointLight.count].x = atof(argv[i+1]);
-      PointLight[PointLight.count].y = atof(argv[i+2]);
-      PointLight[PointLight.count].z = atof(argv[i+3]);
-      PointLight[PointLight.count].r = atof(argv[i+4]);
-      PointLight[PointLight.count].g = atof(argv[i+5]);
-      PointLight[PointLight.count].b = atof(argv[i+6]);
-      PointLight.count++;
+      plArray[PointLight::count].x = atof(argv[i+1]);
+      plArray[PointLight::count].y = atof(argv[i+2]);
+      plArray[PointLight::count].z = atof(argv[i+3]);
+      plArray[PointLight::count].r = atof(argv[i+4]);
+      plArray[PointLight::count].g = atof(argv[i+5]);
+      plArray[PointLight::count].b = atof(argv[i+6]);
+      PointLight::count++;
       i += 7;
     }
     if (argv[i] == "-dl") {
-      DirectionalLight[DirectionalLight.count].x = atof(argv[i+1]);
-      DirectionalLight[DirectionalLight.count].y = atof(argv[i+2]);
-      DirectionalLight[DirectionalLight.count].z = atof(argv[i+3]);
-      DirectionalLight[DirectionalLight.count].r = atof(argv[i+4]);
-      DirectionalLight[DirectionalLight.count].g = atof(argv[i+5]);
-      DirectionalLight[DirectionalLight.count].b = atof(argv[i+6]);
-      DirectionalLight.count++;
+      dlArray[DirectionalLight::count].x = atof(argv[i+1]);
+      dlArray[DirectionalLight::count].y = atof(argv[i+2]);
+      dlArray[DirectionalLight::count].z = atof(argv[i+3]);
+      dlArray[DirectionalLight::count].r = atof(argv[i+4]);
+      dlArray[DirectionalLight::count].g = atof(argv[i+5]);
+      dlArray[DirectionalLight::count].b = atof(argv[i+6]);
+      DirectionalLight::count++;
       i += 7;
     }
   }
