@@ -5,8 +5,8 @@ ifeq ($(shell sw_vers 2>/dev/null | grep Mac | awk '{ print $$2}'),Mac)
     	-L"/System/Library/Frameworks/OpenGL.framework/Libraries" \
     	-lGL -lGLU -lm -lstdc++
 else
-	CFLAGS = -g -DGL_GLEXT_PROTOTYPES -Iglut-3.7.6-bin
-	LDFLAGS = -lglut -lGLU
+	CFLAGS = -g -DGL_GLEXT_PROTOTYPES -Iexample_01/glut-3.7.6-bin
+	LDFLAGS = -lglut -lGLU -lGL -lm
 endif
 	
 RM = /bin/rm -f 
