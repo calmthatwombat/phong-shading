@@ -1,9 +1,9 @@
 
+#include <map>
 #include <string>
 #include <vector>
 #include <iostream>
 #include <fstream>
-#include <cmath>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -22,6 +22,8 @@
 #include <time.h>
 #include <math.h>
 #include <algorithm>
+#include <png.h>
+
 
 
 #define PI 3.14159265  // Should be used from mathlib
@@ -119,33 +121,6 @@ vector<float> shAverager(vector<float> rgbs[], int num) {
   return result;
 }
 
-/** 
- * Combine and average light values to find resultant RGB
- * PARAM rgbs : array of the RGBs
- * PARAM num : length of rgbs array (# of RGBs to be combined) */
-vector<float> liAverager(vector<float> rgbs[], int num) {
-  vector<float> result(3, 0.0f);
-  float r = 0.0f;
-  float g = 0.0f;
-  float b = 0.0f;
-  int i;
-  for (i = 0; i < num; i++) {
-    r = r + rgbs[i].at(0);
-    g = g + rgbs[i].at(1);
-    b = b + rgbs[i].at(2);
-  }
-  // Scale down when overflow
-  if (r > 1.0f || g > 1.0f || b > 1.0f) {
-    float clamp = max(max(r, g), b);
-    r = r/clamp;
-    g = g/clamp;
-    b = b/clamp;
-  }
-  result.at(0) = r;
-  result.at(1) = g;
-  result.at(2) = b;
-  return result;
-}
 
 // Normal finder (normalize as well)
 vector<float> normalizer(vector<float> spherePt) {
@@ -226,8 +201,35 @@ vector<float> specularify(vector<float> scolor, vector<float> icolor,
   result.at(1) = scalar*scolor.at(1)* icolor.at(1);
   result.at(2) = scalar*scolor.at(2)* icolor.at(2);
   return result;
-
 }
+
+/**
+ *  Anisotropic mapping setup */
+map<float, float> anisMapX;
+map<float, float> anisMapY;
+
+/**
+ *  Anisotropic mapper
+ *  PARAMS original RGB (pre-Capped) and PARAMS y
+ *  to return a resultant anisotropic mapped RGB */
+vector<float> anisotropify(vector<float> rgb, float x, float y) {
+  vector<float> result(3, 0.0f);
+  float scale;
+  // if 'y' already exists in anisMap, assign 'y' to scale.
+  if (anisMapY.count(y)) {
+    map<float, float>::iterator iter = anisMapY.find(y);
+    scale = iter->second;
+  } else {
+    scale = (float) rand()/ double(RAND_MAX);
+    scale = 1.0f - 0.1f*scale;
+    anisMapY[y] = scale;
+  }
+  result.at(0) = rgb.at(0)*scale;
+  result.at(1) = rgb.at(1)*scale;
+  result.at(2) = rgb.at(2)*scale;
+  return result;
+}
+
 
 // Classes needed for storing info 
 class Color;
@@ -278,6 +280,17 @@ PowerCoeff pc;
 PointLight plArray[5];
 DirectionalLight dlArray[5];
 Color ka, kd, ks;
+
+// OPTIONAL E.C. FEATURES
+int anisTrue;
+int toonTrue;
+int pngTrue;
+
+
+
+
+
+
 
 //****************************************************
 // Draw a filled circle.  
@@ -343,9 +356,8 @@ void circle(float centerX, float centerY, float radius) {
 	vector<float> aotl[PointLight::count + DirectionalLight::count];
 
 	// PointLight calculations
-	
 	for (int k = 0; k < PointLight::count; k++) {
-	  // First form array, so as to pass through Averager
+	  // First form array, used to pass through Averager
 	  int arraySize = 0;
 	  if (Color::aExists)
 	    arraySize++;
@@ -368,8 +380,12 @@ void circle(float centerX, float centerY, float radius) {
 	  if (Color::dExists) {
 	    vector<float> dRGB(3, 0.0f);
 	    vector<float> lightdir(3, 0.0f);
-	    // Find the light direction using vectorizer
-	    lightdir = vectorizer(plArray[k].pl, xyz);
+	    vector<float> plScaled(3, 0.0f);
+	    // Find the light direction using vectorizer (using plScaled)
+	    plScaled.at(0) = plArray[k].pl.at(0)*radius;
+	    plScaled.at(1) = plArray[k].pl.at(1)*radius;
+	    plScaled.at(2) = plArray[k].pl.at(2)*radius;
+	    lightdir = vectorizer(plScaled, xyz);
 	    // Diffusify
 	    dRGB = diffusify(kd.rgb, plArray[k].rgb, lightdir, sn);
 	    rgbs[currentPos] = dRGB;
@@ -379,8 +395,12 @@ void circle(float centerX, float centerY, float radius) {
 	  if (Color::sExists) {
 	    vector<float> sRGB(3, 0.0f);
 	    vector<float> lightdir(3, 0.0f);
-	    // Find the light direction using vectorizer
-	    lightdir = vectorizer(plArray[k].pl, xyz);
+	    vector<float> plScaled(3, 0.0f);
+	    plScaled.at(0) = plArray[k].pl.at(0)*radius;
+	    plScaled.at(1) = plArray[k].pl.at(1)*radius;
+	    plScaled.at(2) = plArray[k].pl.at(2)*radius;
+	    // Find the light direction using vectorizer (using plScaled)
+	    lightdir = vectorizer(plScaled, xyz);
 	    sRGB = specularify(ks.rgb, plArray[k].rgb, lightdir, sn, dirToView, pc.v);
 	    rgbs[currentPos] = sRGB;
 	  }
@@ -406,6 +426,8 @@ void circle(float centerX, float centerY, float radius) {
 	    vector<float> aRGB(3, 0.0f);
 	    // Ambientify
 	    aRGB = ambientify(ka.rgb, dlArray[k].rgb);
+	    if (anisTrue)
+	      aRGB = anisotropify(aRGB, x, y);
 	    rgbs[currentPos] = aRGB;
 	    currentPos++;
 	  }
@@ -417,6 +439,8 @@ void circle(float centerX, float centerY, float radius) {
 	    lightdir = normalizer(dlArray[k].dl);
 	    // Diffusify
 	    dRGB = diffusify(kd.rgb, dlArray[k].rgb, lightdir, sn);
+	    if (anisTrue)
+	      dRGB = anisotropify(dRGB, x, y);
 	    rgbs[currentPos] = dRGB;
 	    currentPos++;
 	  }
@@ -427,107 +451,49 @@ void circle(float centerX, float centerY, float radius) {
 	    // Normalize the directional light
 	    lightdir = normalizer(dlArray[k].dl);
 	    sRGB = specularify(ks.rgb, dlArray[k].rgb, lightdir, sn, dirToView, pc.v);
+	    if (anisTrue)
+	      sRGB = anisotropify(sRGB, x, y);
 	    rgbs[currentPos] = sRGB;
 	  }
 	  // Combine, then insert into aotl
 	  aotl[k + PointLight::count] = shAverager(rgbs, arraySize);
 	}
 
+	if (anisTrue) {
+	  for (int k = 0; k < PointLight::count + DirectionalLight::count; k++)
+	    aotl[k] = anisotropify(aotl[k], x, y);
+	}
+
 	// Result RGB for given pixel
 	vector<float> result(3, 0.0f);
-	// result = Combined of allOfTheLights
+	// Set result to Combined of allOfTheLights
 	result = shAverager(aotl, PointLight::count + DirectionalLight::count);
+
+	// TOON SHADING
+	if (toonTrue) {
+	  for (int k = 0; k < 3; k++) {
+	    if (result.at(k) >= 0.0f && result.at(k) < 0.1f) {
+	      result.at(k) = 0.0f;
+	    } else if (result.at(k) < 0.2f) {
+	      result.at(k) = 0.15f;
+	    } else if (result.at(k) < 0.4f) {
+	      result.at(k) = 0.32f;
+	    } else if (result.at(k) < 0.8f) {
+	      result.at(k) = 0.57f;
+	    } else if (result.at(k) < 0.9f) {
+	      result.at(k) = 0.85f;
+	    } else {
+	      result.at(k) = 1.0f;
+	    }
+	  }
+	}
+
 	setPixel(i,j, result.at(0), result.at(1), result.at(2));
 
-	/**
-	// LIGHTPOS
-	vector<float> lightpos(3, 0.0f);
-	lightpos.at(0) = 1.0f*radius;
-	lightpos.at(1) = 1.0f*radius;
-	lightpos.at(2) = 1.0f*radius;
-	
-	// LIGHTDIR
-	vector<float> lightdir(3, 0.0f);
-	lightdir.at(0) = -1.0f;
-	lightdir.at(1) = 0.0f;
-	lightdir.at(2) = -1.0f;
-	lightdir = normalizer(lightdir);
-
-	// LIGHTCOL
-	vector<float> lightcol(3, 0.0f);
-	lightcol.at(0) = 1.0f;
-	lightcol.at(1) = 1.0f;
-	lightcol.at(2) = 1.0f;
-
-
-	// SURFACENORMAL
-	vector<float> sn(3, 0.0f);
-	sn.at(0) = x;
-	sn.at(1) = y;
-	sn.at(2) = z;
-	sn = normalizer(sn);
-
-	///////ambient test case
-	vector<float> a(3, 0.0f);
-	vector<float> alightcol(3, 0.0f);
-	a.at(0) = 0.0f;
-	a.at(1) = 0.0f;
-	a.at(2) = 0.0f;
-	
-	alightcol.at(0) = 1.0f;
-	alightcol.at(1) = 0.5f;
-	alightcol.at(2) = 0.5f;
-	
-	////////diffuse test case
-	vector<float> d(3, 0.0f);
-	d.at(0) = 1.0f;
-	d.at(1) = 0.0f;
-	d.at(2) = 1.0f;
-	
-	/////////////specular test case
-	vector<float> s(3, 0.0f);
-	vector<float> reflectRay(3, 0.0f);
-	vector<float> dirToView(3, 0.0f);
-	float pCoeff = 20.0f;
-	s.at(0) = 0.0f;
-	s.at(1) = 0.0f;
-	s.at(2) = 1.0f;
-	
-	reflectRay = getRefRay(lightdir, sn); //already normalized.
-
-	dirToView.at(0) = 0.0f;
-	dirToView.at(1) = 0.0f;
-	dirToView.at(2) = 1.0f;
-	dirToView = normalizer(dirToView);
-
-
-	//the result
-	vector<float> result(3, 0.0f);
-	vector<float> r1(3, 0.0f);
-	vector<float> r2(3, 0.0f);
-	vector<float> r3(3, 0.0f);
-
-	lightdir = vectorizer(lightpos, xyz);
-	
-	r1 = ambientify(a, lightcol);
-	r2 = diffusify(d, lightcol, lightdir, sn);
-	r3 = specularify(s, lightcol, lightdir, sn, dirToView, pCoeff);
-	vector<float> testRGBS[3];
-	testRGBS[0] = r1;
-	testRGBS[1] = r2;
-	testRGBS[2] = r3;
-
-	result = shAverager(testRGBS, 3);
-	setPixel(i,j, result.at(0), result.at(1), result.at(2));
-	*/
-	
-
-        //setPixel(i,j, 0.2, 0.2, 0.0);
 
         // This is amusing, but it assumes negative color values are treated reasonably.
         //setPixel(i,j, x/radius, y/radius, z/radius );
       }
-
 
     }
   }
@@ -547,16 +513,19 @@ void myDisplay() {
 
 
   // Start drawing
+
   circle(viewport.w / 2.0 , viewport.h / 2.0 , min(viewport.w, viewport.h) / 3.0);
-  for (int k = 0; k < PointLight::count; k++) {
-    plArray[k].pl.at(0) = plArray[k].pl.at(0)*(min(viewport.w, viewport.h) / 3.0);
-    plArray[k].pl.at(1) = plArray[k].pl.at(1)*(min(viewport.w, viewport.h) / 3.0);
-    plArray[k].pl.at(2) = plArray[k].pl.at(2)*(min(viewport.w, viewport.h) / 3.0);
-  }
+  
   glFlush();
   glutSwapBuffers();					// swap buffers (we earlier set double buffer)
 }
 
+/** 
+ * spacebar, to implement spacebar functionality */
+void spacebar(unsigned char key, int x, int y) {
+  if (key == 32)
+    exit(0);
+}
 
 //****************************************************
 // the usual stuff, nothing exciting here
@@ -616,7 +585,33 @@ int main(int argc, char *argv[]) {
       i += 7;
       continue;
     }
+
+    // OPTIONAL E.C. FEATURES
+    if (string(argv[i]) == "-an") {
+      anisTrue = 1;
+      i += 1;
+      break;
+    }
+    if (string(argv[i]) == "-to") {
+      toonTrue = 1;
+      i += 1;
+      break;
+    }
+    if (string(argv[i]) == "-pn") {
+      pngTrue = 1;
+      i += 1;
+      break;
+    }
   }
+
+
+
+
+
+
+
+
+
   
   //This initializes glut
   glutInit(&argc, argv);
@@ -638,16 +633,11 @@ int main(int argc, char *argv[]) {
   glutDisplayFunc(myDisplay);				// function to run when its time to draw something
   glutReshapeFunc(myReshape);				// function to run when the window gets resized
 
+  glutKeyboardFunc(spacebar);
+  
   glutMainLoop();							// infinite loop that will keep drawing and resizing
   // and whatever else
 
   return 0;
 }
-
-
-
-
-
-
-
 
